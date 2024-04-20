@@ -1,0 +1,231 @@
+/**
+ *
+ * @author Mohamed safkhan AC
+ */
+
+
+import java.util.Scanner;
+
+public class EncrypText {
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            System.out.println("Select an option:");
+            System.out.println("1. Encryption");
+            System.out.println("2. Decryption");
+            System.out.println("3. Exit");
+            System.out.print("Enter your choice: ");
+
+            int choice = scanner.nextInt();
+            scanner.nextLine(); // consume newline
+
+            switch (choice) {
+                case 1:
+                    encryption();
+                    break;
+                case 2:
+                    decryption();
+                    break;
+                case 3:
+                    System.out.println("Exiting...");
+                    return;
+                default:
+                    System.out.println("Invalid option. Please enter a valid choice.");
+            }
+        }
+    }
+
+    private static void encryption() {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter the key (3-4 digit decimal number between 100 and 9999): ");
+        int key = scanner.nextInt();
+        scanner.nextLine(); // consume newline
+
+        if (key < 100 || key > 9999) {
+            System.out.println("Invalid key. Key must be between 100 and 9999.");
+            return;
+        }
+
+        System.out.print("Enter the plaintext: ");
+        String plaintext = scanner.nextLine();
+
+        // STEP 2: Convert key to binary
+        String binaryKey = String.format("%16s", Integer.toBinaryString(key)).replace(' ', '0');
+
+        // STEP 3: Count letters in plaintext
+        int letterCount = plaintext.replaceAll("\\s+", "").length();
+
+        // STEP 4: Convert letters to binary
+        StringBuilder binaryTextBuilder = new StringBuilder();
+        for (char c : plaintext.toCharArray()) {
+            if (c >= 32 && c <= 127) {
+                String binary = padWithZeros(Integer.toBinaryString(c), 8);
+                binaryTextBuilder.append(binary);
+            }
+        }
+
+        // STEP 5: XOR each pair of letters with key
+        StringBuilder encryptedTextBuilder = new StringBuilder();
+        for (int i = 0; i < binaryTextBuilder.length(); i += 16) {
+            String pair = binaryTextBuilder.substring(i, Math.min(i + 16, binaryTextBuilder.length()));
+            String xorResult = xor(pair, binaryKey);
+            encryptedTextBuilder.append(xorResult);
+        }
+
+        // STEP 6: Convert result to binary
+        String encryptedBinary = encryptedTextBuilder.toString();
+
+        // STEP 7: Convert binary to hexadecimal
+        StringBuilder hexadecimalBuilder = new StringBuilder();
+        for (int i = 0; i < encryptedBinary.length(); i += 8) {
+            String chunk = encryptedBinary.substring(i, Math.min(i + 8, encryptedBinary.length()));
+            int decimal = Integer.parseInt(chunk, 2);
+            if (decimal < 32 || decimal > 127) {
+                decimal = (decimal + 256) % 256; // Ensure value remains in ASCII range
+            }
+            String hex = Integer.toString(decimal, 16);
+            hexadecimalBuilder.append(hex.toUpperCase());
+            hexadecimalBuilder.append(" ");
+        }
+
+        // STEP 8: Write the result in a line
+        String encryptedHexadecimal = hexadecimalBuilder.toString().trim();
+
+        // STEP 9: Shift based on key
+        String shiftedHexadecimal = shiftHexadecimal(encryptedHexadecimal, key);
+
+        // Convert hexadecimal to characters based on ASCII table
+        StringBuilder encryptedText = new StringBuilder();
+        for (String hex : shiftedHexadecimal.split(" ")) {
+            int decimal = Integer.parseInt(hex, 16);
+            char character = (char) decimal;
+            encryptedText.append(character);
+        }
+
+        System.out.println("Encrypted text: " + encryptedText);
+    }
+
+    private static void decryption() {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter the key (3-4 digit decimal number between 100 and 9999): ");
+        int key = scanner.nextInt();
+        scanner.nextLine(); // consume newline
+
+        if (key < 100 || key > 9999) {
+            System.out.println("Invalid key. Key must be between 100 and 9999.");
+            return;
+        }
+
+        System.out.print("Enter the ciphertext: ");
+        String ciphertext = scanner.nextLine();
+
+        // Convert ciphertext characters to hexadecimal
+        StringBuilder hexadecimalBuilder = new StringBuilder();
+        for (char c : ciphertext.toCharArray()) {
+            if (c >= 32 && c <= 127) {
+                int decimal = (int) c;
+                String hex = Integer.toHexString(decimal).toUpperCase();
+                hexadecimalBuilder.append(hex);
+                hexadecimalBuilder.append(" ");
+            }
+        }
+        String encryptedHexadecimal = hexadecimalBuilder.toString().trim();
+
+        // Reverse step 9: Unshift based on key
+        String unshiftedHexadecimal = unshiftHexadecimal(encryptedHexadecimal, key);
+
+        // Reverse step 8: Convert hexadecimal to binary
+        StringBuilder binaryBuilder = new StringBuilder();
+        for (String hex : unshiftedHexadecimal.split(" ")) {
+            int decimal = Integer.parseInt(hex, 16);
+            String binary = padWithZeros(Integer.toBinaryString(decimal), 8);
+            binaryBuilder.append(binary);
+        }
+
+        // Reverse step 7: XNOR each pair of letters with key
+        String encryptedBinary = binaryBuilder.toString();
+        StringBuilder decryptedTextBuilder = new StringBuilder();
+        for (int i = 0; i < encryptedBinary.length(); i += 16) {
+            String pair = encryptedBinary.substring(i, Math.min(i + 16, encryptedBinary.length()));
+            String xnorResult = xor(pair, String.format("%16s", Integer.toBinaryString(key)).replace(' ', '0'));
+            decryptedTextBuilder.append(xnorResult);
+        }
+
+        // Reverse step 6: Convert result to ASCII characters
+        StringBuilder plaintextBuilder = new StringBuilder();
+        for (int i = 0; i < decryptedTextBuilder.length(); i += 8) {
+            String character = decryptedTextBuilder.substring(i, Math.min(i + 8, decryptedTextBuilder.length()));
+            int ascii = Integer.parseInt(character, 2);
+            plaintextBuilder.append((char) ascii);
+        }
+
+        // Reverse step 5: Get the plaintext
+        String plaintext = plaintextBuilder.toString();
+
+        System.out.println("Decrypted text: " + plaintext);
+    }
+
+    private static String xor(String a, String b) {
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < a.length(); i++) {
+            result.append(a.charAt(i) ^ b.charAt(i));
+        }
+        return result.toString();
+    }
+
+    private static String shiftHexadecimal(String hex, int key) {
+        int sum = 0;
+        for (char c : String.valueOf(key).toCharArray()) {
+            sum += Character.getNumericValue(c);
+        }
+
+        StringBuilder shiftedHex = new StringBuilder();
+        for (String part : hex.split(" ")) {
+            int decimal = Integer.parseInt(part, 16);
+            decimal = (decimal + sum) % 256; // ASCII range
+            if (decimal < 32 || decimal > 127) {
+                decimal = (decimal + 256) % 256; // Ensure value remains in ASCII range
+            }
+            shiftedHex.append(String.format("%02X", decimal));
+            shiftedHex.append(" ");
+        }
+        return shiftedHex.toString().trim();
+    }
+
+    private static String unshiftHexadecimal(String hex, int key) {
+        int sum = 0;
+        for (char c : String.valueOf(key).toCharArray()) {
+            sum += Character.getNumericValue(c);
+        }
+
+        StringBuilder unshiftedHex = new StringBuilder();
+        for (String part : hex.split(" ")) {
+            int decimal = Integer.parseInt(part, 16);
+            decimal = (decimal - sum + 256) % 256; // ASCII range
+            if (decimal < 32 || decimal > 127) {
+                decimal = (decimal + 256) % 256; // Ensure value remains in ASCII range
+            }
+            unshiftedHex.append(String.format("%02X", decimal));
+            unshiftedHex.append(" ");
+        }
+        return unshiftedHex.toString().trim();
+    }
+
+    private static String padWithZeros(String binary, int length) {
+        int diff = length - binary.length();
+        if (diff > 0) {
+            StringBuilder paddedBinary = new StringBuilder();
+            for (int i = 0; i < diff; i++) {
+                paddedBinary.append("0");
+            }
+            paddedBinary.append(binary);
+            return paddedBinary.toString();
+        } else {
+            return binary;
+        }
+    }
+}
